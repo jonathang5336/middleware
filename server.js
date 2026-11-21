@@ -1,7 +1,8 @@
+
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import fs from "fs";
+import facultyRouter from "./expressapplication.js";
 
 const app = express();
 
@@ -20,13 +21,9 @@ const logger = (req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
 
-    const log = `${req.method} ${req.url} ${res.statusCode} - ${duration}ms\n`;
-
-    fs.appendFile("Server.log", log, (err) => {
-      if (err) {
-        console.error("Failed to write request log:", err);
-      }
-    });
+    console.log(
+      `${req.method} ${req.url} ${res.statusCode} - ${duration}ms`
+    );
   });
 
   next();
@@ -36,34 +33,32 @@ app.use(logger);
 
 // Route-specific validation middleware
 const validate = (req, res, next) => {
-    if(!req.body){
-        const err=new Error("Patients details missing");
-        err.statusCode = 400;
-        throw err;
-    }
-  const { name, gender, ward } = req.body;
+  const { name, gender, ward } = req.body || {};
 
   if (!name || !gender || !ward) {
     const err = new Error("Patient details are missing");
     err.statusCode = 400;
-    throw err;
+    return next(err);
   }
 
   next();
 };
 
-// Create patient
-// POST http://localhost:6500/api/v1/patients
-// Body: { "name": "Mahi", "gender": "Female", "ward": "ICU" }
+// Root route
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Middleware Lab API is running successfully"
+  });
+});
 
+// PATIENT API
+
+// Create patient
 app.post("/api/v1/patients", validate, (req, res) => {
-  res.status(200).send("Patient record created successfully");
+  res.status(201).send("Patient record created successfully");
 });
 
 // Read all patients
-// GET http://localhost:6500/api/v1/patients
-// GET http://localhost:6500/api/v1/patients?ward=ICU
-
 app.get("/api/v1/patients", (req, res) => {
   const ward = req.query.ward;
 
@@ -72,47 +67,45 @@ app.get("/api/v1/patients", (req, res) => {
       `Patients of ${ward} ward fetched successfully`
     );
   }
-  else{
+
   res.status(200).send("All patients fetched successfully");
-  }
 });
 
 // Read one patient
-// GET http://localhost:6500/api/v1/patients/:id
-
 app.get("/api/v1/patients/:id", (req, res) => {
   const id = req.params.id;
 
   res.status(200).send(
-    'Patient with id ${id} fetched successfully'
+    `Patient with id ${id} fetched successfully`
   );
 });
 
 // Update one patient
-// PUT http://localhost:6500/api/v1/patients/:id
-
-app.put("/api/v1/patients/:id",validate, (req, res) => {
+app.put("/api/v1/patients/:id", validate, (req, res) => {
   const id = req.params.id;
 
   res.status(200).send(
-    'Patient with id ${id} updated successfully'
+    `Patient with id ${id} updated successfully`
   );
 });
 
 // Delete one patient
-// DELETE http://localhost:6500/api/v1/patients/:id
-
 app.delete("/api/v1/patients/:id", (req, res) => {
-  const id  = req.params.id;
+  const id = req.params.id;
 
   res.status(200).send(
     `Patient with id ${id} deleted successfully`
   );
 });
 
+// FACULTY API
+app.use("/api/v1/faculty", facultyRouter);
+
 // 404 middleware
 app.use((req, res) => {
-  res.status(404).send("Resource not found");
+  res.status(404).json({
+    message: "Resource not found"
+  });
 });
 
 // Error-handling middleware
@@ -120,12 +113,19 @@ app.use((err, req, res, next) => {
   const errorCode = err.statusCode || 500;
   const message = err.message || "Internal server error";
 
-  res.status(errorCode).send(message);
+  res.status(errorCode).json({
+    message
+  });
 });
 
-// Start server
-const PORT = 6500;
+// Local development server
+if (process.env.NODE_ENV !== "production") {
+  const PORT = 6500;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+// Export app for Vercel
+export default app;

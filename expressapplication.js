@@ -1,25 +1,35 @@
+
 import fs from "fs";
+import os from "os";
+import path from "path";
 import express from "express";
 
-const app = express();
+const router = express.Router();
 
-app.use(express.json());
+const DATA_FILE = path.join(os.tmpdir(), "faculty.json");
+
+// Create temporary data file if it doesn't exist
+const initializeData = () => {
+  if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(DATA_FILE, "[]", "utf-8");
+  }
+};
 
 const readData = () => {
-  const data = fs.readFileSync("./data/faculty.json", "utf-8");
-  return JSON.parse(data);
+  initializeData();
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
 };
 
 const writeData = (data) => {
   fs.writeFileSync(
-    "./data/faculty.json",
+    DATA_FILE,
     JSON.stringify(data, null, 2),
     "utf-8"
   );
 };
 
 // Create a faculty member
-app.post("/api/v1/faculty", (req, res) => {
+router.post("/", (req, res) => {
   const allFaculty = readData();
 
   const newFaculty = {
@@ -39,12 +49,14 @@ app.post("/api/v1/faculty", (req, res) => {
 });
 
 // Get all faculty members
-app.get("/api/v1/faculty", (req, res) => {
+router.get("/", (req, res) => {
   let allFaculty = readData();
   const dept = req.query.dept;
 
   if (dept) {
-    allFaculty = allFaculty.filter((faculty) => faculty.dept === dept);
+    allFaculty = allFaculty.filter(
+      (faculty) => faculty.dept === dept
+    );
   }
 
   res.status(200).json({
@@ -54,7 +66,7 @@ app.get("/api/v1/faculty", (req, res) => {
 });
 
 // Get one faculty member by ID
-app.get("/api/v1/faculty/:id", (req, res) => {
+router.get("/:id", (req, res) => {
   const allFaculty = readData();
   const facultyId = parseInt(req.params.id);
 
@@ -75,7 +87,7 @@ app.get("/api/v1/faculty/:id", (req, res) => {
 });
 
 // Update a faculty member
-app.put("/api/v1/faculty/:id", (req, res) => {
+router.put("/:id", (req, res) => {
   const allFaculty = readData();
   const facultyId = parseInt(req.params.id);
 
@@ -85,8 +97,9 @@ app.put("/api/v1/faculty/:id", (req, res) => {
 
   if (facultyIndex !== -1) {
     const updatedFaculty = {
-      id: facultyId,
+      ...allFaculty[facultyIndex],
       ...req.body,
+      id: facultyId,
     };
 
     allFaculty[facultyIndex] = updatedFaculty;
@@ -104,7 +117,7 @@ app.put("/api/v1/faculty/:id", (req, res) => {
 });
 
 // Delete a faculty member
-app.delete("/api/v1/faculty/:id", (req, res) => {
+router.delete("/:id", (req, res) => {
   const facultyId = parseInt(req.params.id);
   const allFaculty = readData();
 
@@ -127,9 +140,4 @@ app.delete("/api/v1/faculty/:id", (req, res) => {
   }
 });
 
-// Start the server
-const PORT = 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+export default router;
