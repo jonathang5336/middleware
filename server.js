@@ -119,7 +119,7 @@ app.use((err, req, res, next) => {
 });
 
 // Local development server
-if (process.env.NODE_ENV !== "production") {
+if (!process.env.VERCEL) {
   const PORT = 6500;
 
   app.listen(PORT, () => {
